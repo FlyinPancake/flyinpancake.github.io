@@ -1,0 +1,248 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css?v=15">
+    <link rel="stylesheet" href="/style-dark.css?v=15">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9Q9S876C8B"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-9Q9S876C8B');
+    </script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="/quizzes_iteszk.js?v=15"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+
+<body class="dark">
+    <div id="navbar" data-open="1">
+        <div id="theme" class="icon" onclick="toggleTheme();"><i class="material-icons">dark_mode</i></div>
+        <div id="close" class="icon mobile" onclick="toggleMenu(false)"><i class="material-icons">close</i></div>
+        <div><input type="checkbox" id="randomize"> Randomize</div><br>
+        <div><button onclick="clearResults()" class="desktop">Clear results for the selected quiz</button></div><br><br>
+
+        Choose a quiz:
+        <div id="navbar-items">
+            <div class="nav-item" data-index="-1">All-in-one</div>
+        </div>
+
+        <br>Color codes:<br>
+        <div class="legend correct"><input type="checkbox" checked disabled> Correct answer</div>
+        <div class="legend"><input type="checkbox" disabled> Correctly left empty</div>
+        <div class="legend wrong"><input type="checkbox" checked disabled> Wrong answer</div>
+        <div class="legend wrong-empty"><input type="checkbox" disabled> Incorrectly left empty</div>
+        <br>
+    </div>
+    <div class="header">
+        <button class="mobile" style="max-width: 60vw" onclick="clearResults()">Clear results</button>
+        <button id="openMenu" class="mobile" onclick="toggleMenu(true)">Open menu</button>
+    </div>
+    <div id="content">
+        <br>
+        <i style="display: inline-block; text-align: center; width: 100%;">Select a quiz from the menu!</i>
+    </div>
+    <div style="display: none;" id="shit"></div>
+    <script>
+
+        $(function () {
+            if(localStorage.getItem("theme") != null && localStorage.getItem("theme") == "light"){
+                $('body').removeClass("dark");
+            }
+            loadQuizzes();
+            setTimeout(removeFlag, 2000);
+        });
+
+        function loadQuizzes() {
+            json.forEach((quiz, index) => {
+                var item = $('<div class="nav-item" data-index="' + index + '"></div>');
+                $("#navbar-items").append(item);
+                item.append('<span>' + quiz.id + ' - ' + quiz.title + '</span>');
+            });
+            $(".nav-item").on("click", function () {
+                $(".nav-item").attr("data-active", "0");
+                $(this).attr("data-active", "1");
+                var index = $(this).attr("data-index");
+                if (index == -1) {
+                    loadQuiz();
+                } else {
+                    loadQuiz(json[index].tasks);
+                }
+            });
+        }
+
+        function loadQuiz(quiz) {
+            $("#content").html("");
+            if (quiz == undefined) {
+                quiz = [];
+                json.forEach(q => quiz = quiz.concat(q.tasks));
+            }
+            if ($("#randomize").prop("checked")) quiz.sort((a, b) => 0.5 - Math.random());
+            quiz.forEach(function (task, index) {
+                if (task.answers != undefined) {
+                    var item = $('<div class="task"></div>');
+                    $("#content").append(item);
+                    item.append('<span class="question">' + task.question + '</span>');
+                    if (task.image != undefined){
+                        item.append('<img src="' + task.image + '" class="' + (task.noFilter ? "no-filter" : "") + '">');
+                    }
+
+                    var storedResult = localStorage.getItem(task.question);
+                    if (task.type == "select") {
+                        var select = $("<select></select>");
+                        task.answers.forEach(answer => {
+                            select.append('<option value="' + answer.text + '">' + answer.text + '</option>');
+                            if (answer.value) {
+                                select.attr("data-answer", answer.text);
+                            }
+                        });
+                        var a = $("<div></div>");
+                        a.append(select);
+                        a.append('<label></label>');
+                        item.append(a);
+
+                        if (storedResult != null) {
+                            select.val(JSON.parse(storedResult)[0]);
+                        }
+                    } else {
+                        task.answers.forEach(answer => {
+                            var a = $("<div></div>");
+                            if(answer.value != undefined){
+                                var taskType = task.type;
+                                if(taskType == "text" && $.isNumeric(answer.value)) taskType = "number";
+                                a.append('<input type="' + taskType + '" data-answer="' + answer.value + '" name="group_' + index + '" />');
+                            }
+                            a.append('<label>' + answer.text + '</label>');
+                            item.append(a);
+                        });
+
+                        if (storedResult != null) {
+                            var myResults = JSON.parse(storedResult);
+                            for (var i = 0; i < myResults.length; ++i) {
+                                if (["checkbox", "radio"].includes(task.type)) {
+                                    $(item.find("input")[i]).prop("checked", myResults[i]);
+                                } else {
+                                    $(item.find("input")[i]).val(myResults[i]);
+                                }
+                            }
+                        }
+                    }
+                    item.append('<button>Check</button>');
+                    if (storedResult != null) check(item.find("button"));
+                }
+            });
+            $("button").on("click", function () {
+                check(this);
+                $(this).blur();
+            });
+            $(".task label").on("click", function () {
+                $(this).parent().find("input").trigger("click");
+            });
+            MathJax.typeset();
+            toggleMenu(false);
+        }
+
+        function check(e) {
+            var myAnswers = [];
+            $(e).parent().find("input, select").each(function () {
+                var answer = $(this).attr("data-answer");
+                $(this).parent().removeClass();
+                var type = $(this).prop("tagName").toLowerCase().includes("select") ? "select" : $(this).prop("type");
+                switch (type) {
+                    case "radio":
+                        if ($(this).prop("checked") && answer == "true") {
+                            $(this).parent().addClass("correct");
+                        } else if ($(this).prop("checked") && answer == "false") {
+                            $(this).parent().addClass("wrong");
+                        } else if (!$(this).prop("checked") && answer == "true") {
+                            $(this).parent().addClass("wrong-empty");
+                        }
+                        myAnswers.push($(this).prop("checked"));
+                        break;
+
+                    case "checkbox":
+                        if ($(this).prop("checked") + "" == answer) {
+                            if ($(this).prop("checked")) $(this).parent().addClass("correct");
+                        } else {
+                            $(this).parent().addClass($(this).prop("checked") ? "wrong" : "wrong-empty");
+                        }
+                        myAnswers.push($(this).prop("checked"));
+                        break;
+
+                    case "number":
+                    case "text":
+                        if ($(this).val() == answer) {
+                            $(this).parent().addClass("correct");
+                            $(this).next().text("");
+                        } else if ($.isNumeric(answer) && Math.abs(Number($(this).val()) - Number(answer)) < 0.01 * Number(answer)) {
+                            $(this).parent().addClass("correct");
+                            $(this).next().text("Helyes válasz: " + answer);
+                        } else {
+                            $(this).parent().addClass("wrong");
+                            $(this).next().text("Helyes válasz: " + answer);
+                        }
+                        $(this).parent().css("background", "none");
+                        myAnswers.push($(this).val());
+                        break;
+
+                    case "select":
+                        if ($(this).children(":selected").text() == answer) {
+                            $(this).parent().addClass("correct");
+                            $(this).next().text("");
+                        } else {
+                            $(this).parent().addClass("wrong");
+                            $(this).next().text("Helyes válasz: " + answer);
+                        }
+                        $(this).parent().css("background", "none");
+                        myAnswers.push($(this).children(":selected").text());
+                        break;
+                }
+            });
+            localStorage.setItem($(e).parent().find(".question").text(), JSON.stringify(myAnswers));
+        }
+
+        function toggleMenu(on) {
+            $("#navbar").attr("data-open", on ? "1" : "0");
+        }
+        
+        function clearResults() {
+            var selected = $('.nav-item[data-active="1"]');
+            if(selected.length==0) return;
+            var index = selected.attr("data-index");
+            if(index==-1){
+                localStorage.clear();
+                loadQuiz();
+            } else {
+                json[index].tasks.forEach(task => {
+                    localStorage.removeItem(task.question);
+                });
+                loadQuiz(json[index].tasks);
+            }
+        }
+
+        function toggleTheme() {
+            $('body').toggleClass('dark');
+            localStorage.setItem("theme", $('body').hasClass('dark') ? "dark" : "light");
+        }
+
+        function removeFlag() {
+            loadReady = true;
+            var divs = document.getElementsByTagName("DIV");
+            var div = divs[divs.length - 1];
+            var ph = div.getAttribute("id");
+            div.parentNode.removeChild(div);
+            if (ph != "shit") setTimeout(removeFlag, 500);
+        }
+
+    </script>
+<div style="text-align: right;position: fixed;z-index:9999999;bottom: 0;width: auto;right: 1%;cursor: pointer;line-height: 0;display:block !important;"><a title="Hosted on free web hosting 000webhost.com. Host your own website for FREE." target="_blank" href="https://www.000webhost.com/?utm_source=000webhostapp&utm_campaign=000_logo&utm_medium=website&utm_content=footer_img"><img src="https://cdn.000webhost.com/000webhost/logo/footer-powered-by-000webhost-white2.png" alt="www.000webhost.com"></a></div><script>function getCookie(t){for(var e=t+"=",n=decodeURIComponent(document.cookie).split(";"),o=0;o<n.length;o++){for(var i=n[o];" "==i.charAt(0);)i=i.substring(1);if(0==i.indexOf(e))return i.substring(e.length,i.length)}return""}getCookie("hostinger")&&(document.cookie="hostinger=;expires=Thu, 01 Jan 1970 00:00:01 GMT;",location.reload());var wordpressAdminBody=document.getElementsByClassName("wp-admin")[0],notification=document.getElementsByClassName("notice notice-success is-dismissible"),hostingerLogo=document.getElementsByClassName("hlogo"),mainContent=document.getElementsByClassName("notice_content")[0];if(null!=wordpressAdminBody&&notification.length>0&&null!=mainContent){var googleFont=document.createElement("link");googleFontHref=document.createAttribute("href"),googleFontRel=document.createAttribute("rel"),googleFontHref.value="https://fonts.googleapis.com/css?family=Roboto:300,400,600,700",googleFontRel.value="stylesheet",googleFont.setAttributeNode(googleFontHref),googleFont.setAttributeNode(googleFontRel);var css="@media only screen and (max-width: 576px) {#main_content {max-width: 320px !important;} #main_content h1 {font-size: 30px !important;} #main_content h2 {font-size: 40px !important; margin: 20px 0 !important;} #main_content p {font-size: 14px !important;} #main_content .content-wrapper {text-align: center !important;}} @media only screen and (max-width: 781px) {#main_content {margin: auto; justify-content: center; max-width: 445px;}} @media only screen and (max-width: 1325px) {.web-hosting-90-off-image-wrapper {position: absolute; max-width: 95% !important;} .notice_content {justify-content: center;} .web-hosting-90-off-image {opacity: 0.3;}} @media only screen and (min-width: 769px) {.notice_content {justify-content: space-between;} #main_content {margin-left: 5%; max-width: 445px;} .web-hosting-90-off-image-wrapper {position: absolute; display: flex; justify-content: center; width: 100%; }} .web-hosting-90-off-image {max-width: 90%;} .content-wrapper {min-height: 454px; display: flex; flex-direction: column; justify-content: center; z-index: 5} .notice_content {display: flex; align-items: center;} * {-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;} .upgrade_button_red_sale{box-shadow: 0 2px 4px 0 rgba(255, 69, 70, 0.2); max-width: 350px; border: 0; border-radius: 3px; background-color: #ff4546 !important; padding: 15px 55px !important; font-family: 'Roboto', sans-serif; font-size: 16px; font-weight: 600; color: #ffffff;} .upgrade_button_red_sale:hover{color: #ffffff !important; background: #d10303 !important;}",style=document.createElement("style"),sheet=window.document.styleSheets[0];style.styleSheet?style.styleSheet.cssText=css:style.appendChild(document.createTextNode(css)),document.getElementsByTagName("head")[0].appendChild(style),document.getElementsByTagName("head")[0].appendChild(googleFont);var button=document.getElementsByClassName("upgrade_button_red")[0],link=button.parentElement;link.setAttribute("href","https://www.hostinger.com/hosting-starter-offer?utm_source=000webhost&utm_medium=panel&utm_campaign=000-wp"),link.innerHTML='<button class="upgrade_button_red_sale">Go for it</button>',(notification=notification[0]).setAttribute("style","padding-bottom: 0; padding-top: 5px; background-color: #040713; background-size: cover; background-repeat: no-repeat; color: #ffffff; border-left-color: #040713;"),notification.className="notice notice-error is-dismissible";var mainContentHolder=document.getElementById("main_content");mainContentHolder.setAttribute("style","padding: 0;"),hostingerLogo[0].remove();var h1Tag=notification.getElementsByTagName("H1")[0];h1Tag.className="000-h1",h1Tag.innerHTML="Black Friday Prices",h1Tag.setAttribute("style",'color: white; font-family: "Roboto", sans-serif; font-size: 22px; font-weight: 700; text-transform: uppercase;');var h2Tag=document.createElement("H2");h2Tag.innerHTML="Get 90% Off!",h2Tag.setAttribute("style",'color: white; margin: 10px 0 15px 0; font-family: "Roboto", sans-serif; font-size: 60px; font-weight: 700; line-height: 1;'),h1Tag.parentNode.insertBefore(h2Tag,h1Tag.nextSibling);var paragraph=notification.getElementsByTagName("p")[0];paragraph.innerHTML="Get Web Hosting for $0.99/month + SSL Certificate for FREE!",paragraph.setAttribute("style",'font-family: "Roboto", sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 15px;');var list=notification.getElementsByTagName("UL")[0];list.remove();var org_html=mainContent.innerHTML,new_html='<div class="content-wrapper">'+mainContent.innerHTML+'</div><div class="web-hosting-90-off-image-wrapper"><img class="web-hosting-90-off-image" src="https://cdn.000webhost.com/000webhost/promotions/bf-2020-wp-inject-img.png"></div>';mainContent.innerHTML=new_html;var saleImage=mainContent.getElementsByClassName("web-hosting-90-off-image")[0]}</script></body>
+
+</html>
