@@ -16,6 +16,7 @@
 
 2. [Packs - winstall](https://winstall.app/packs)
 
-## Opcionális Aktiválás Script
+## Opcionális Scriptek
 
 [Akitválás](Aktivalas.vbs)
+[UTC Időzóna beállítás Linux Dual Boot-hoz](windows-utc.reg)
